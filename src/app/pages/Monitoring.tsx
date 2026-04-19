@@ -1,105 +1,212 @@
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "../components/Header";
 import { KPICard } from "../components/KPICard";
 import { Heatmap } from "../components/Heatmap";
 import { LeaderList } from "../components/LeaderList";
+import { useFilters } from "../../hooks/useFilters";
+import {
+  fetchMonitoringSummary,
+  fetchHeatmapData,
+  fetchTopDynamics,
+} from "../../api/monitoring";
+import { getErrorMessage } from "../../utils/errorHandler";
+
+interface Summary {
+  population: number;
+  populationChange: number;
+  populationChangePercent: number;
+  birthRate: number;
+  deathRate: number;
+  naturalGrowth: number;
+  migration: number;
+}
+
+interface TopDynamics {
+  growth: { mo_id: number; name: string; population: number; changePercent: number }[];
+  decline: { mo_id: number; name: string; population: number; changePercent: number }[];
+}
+
+function Toast({ message, type }: { message: string; type: "error" | "info" }) {
+  return (
+    <div
+      className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl border shadow-xl backdrop-blur-md text-sm font-medium max-w-sm ${
+        type === "error"
+          ? "bg-rose-900/80 border-rose-500/40 text-rose-200"
+          : "bg-slate-800/90 border-white/10 text-slate-200"
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
+
+function formatValue(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}М`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}К`;
+  return String(n);
+}
 
 export function Monitoring() {
-  const sparklineDataBlue = Array.from({ length: 20 }, (_, i) => ({ value: 100 + Math.random() * 20 + i * 2 }));
-  const sparklineDataGreen = Array.from({ length: 20 }, (_, i) => ({ value: 50 + Math.random() * 10 + i * 1.5 }));
-  const sparklineDataRed = Array.from({ length: 20 }, (_, i) => ({ value: 80 - Math.random() * 10 - i }));
-  const sparklineDataNeutral = Array.from({ length: 20 }, () => ({ value: 60 + Math.random() * 5 }));
+  const filters = useFilters();
 
-  const growthLeaders = [
-    { id: "1", name: "Тюменская область", value: 3.2, max: 4.0 },
-    { id: "2", name: "Москва", value: 2.8, max: 4.0 },
-    { id: "3", name: "Санкт-Петербург", value: 2.5, max: 4.0 },
-    { id: "4", name: "Татарстан", value: 2.1, max: 4.0 },
-    { id: "5", name: "Краснодарский край", value: 1.9, max: 4.0 },
-    { id: "6", name: "Свердловская область", value: 1.7, max: 4.0 },
-    { id: "7", name: "Новосибирская область", value: 1.5, max: 4.0 },
-    { id: "8", name: "Челябинская область", value: 1.2, max: 4.0 },
-    { id: "9", name: "Самарская область", value: 0.9, max: 4.0 },
-    { id: "10", name: "Башкортостан", value: 0.7, max: 4.0 },
-  ];
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [geoData, setGeoData] = useState<any>(null);
+  const [topDynamics, setTopDynamics] = useState<TopDynamics>({ growth: [], decline: [] });
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "info" } | null>(null);
 
-  const declineLeaders = [
-    { id: "11", name: "Псковская область", value: -2.8, max: 3.5 },
-    { id: "12", name: "Смоленская область", value: -2.5, max: 3.5 },
-    { id: "13", name: "Тверская область", value: -2.3, max: 3.5 },
-    { id: "14", name: "Тульская область", value: -2.0, max: 3.5 },
-    { id: "15", name: "Ивановская область", value: -1.8, max: 3.5 },
-    { id: "16", name: "Владимирская область", value: -1.6, max: 3.5 },
-    { id: "17", name: "Рязанская область", value: -1.5, max: 3.5 },
-    { id: "18", name: "Тамбовская область", value: -1.2, max: 3.5 },
-    { id: "19", name: "Курганская область", value: -1.1, max: 3.5 },
-    { id: "20", name: "Орловская область", value: -0.9, max: 3.5 },
-  ];
+  const showToast = useCallback((message: string, type: "error" | "info" = "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  const loadData = useCallback(
+    async (params: { startYear: number; endYear: number; regionId: number | null; moId: number | null }) => {
+      setIsLoadingData(true);
+      try {
+        const [summaryData, heatmap, dynamics] = await Promise.all([
+          fetchMonitoringSummary({
+            startYear: params.startYear,
+            endYear: params.endYear,
+            regionId: params.regionId,
+            moId: params.moId,
+          }),
+          fetchHeatmapData({
+            startYear: params.startYear,
+            endYear: params.endYear,
+            regionId: params.regionId,
+          }),
+          fetchTopDynamics({
+            startYear: params.startYear,
+            endYear: params.endYear,
+            regionId: params.regionId,
+          }),
+        ]);
+        setSummary(summaryData);
+        setGeoData(heatmap);
+        setTopDynamics(dynamics);
+      } catch (err: any) {
+        showToast(getErrorMessage(err));
+      } finally {
+        setIsLoadingData(false);
+      }
+    },
+    [showToast]
+  );
+
+  // Load default data after filters are ready
+  useEffect(() => {
+    if (!filters.isLoadingFilters && filters.availableYears.length > 0) {
+      loadData({
+        startYear: filters.startYear,
+        endYear: filters.endYear,
+        regionId: filters.selectedRegionId,
+        moId: filters.selectedMoId,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.isLoadingFilters]);
+
+  const handleShowClick = () => {
+    if (!filters.isYearRangeValid) return;
+    loadData({
+      startYear: filters.startYear,
+      endYear: filters.endYear,
+      regionId: filters.selectedRegionId,
+      moId: filters.selectedMoId,
+    });
+  };
+
+  const sparklineBlue = Array.from({ length: 20 }, (_, i) => ({ value: 100 + i * 2 + Math.random() * 10 }));
+  const sparklineGreen = Array.from({ length: 20 }, (_, i) => ({ value: 50 + i + Math.random() * 8 }));
+  const sparklineRed = Array.from({ length: 20 }, (_, i) => ({ value: 80 - i * 0.5 - Math.random() * 5 }));
+  const sparklineNeutral = Array.from({ length: 20 }, () => ({ value: 60 + Math.random() * 5 }));
 
   return (
     <>
-      <Header />
-      
+      <Header
+        regions={filters.regions}
+        municipalities={filters.municipalities}
+        availableYears={filters.availableYears}
+        selectedRegionId={filters.selectedRegionId}
+        selectedMoId={filters.selectedMoId}
+        startYear={filters.startYear}
+        endYear={filters.endYear}
+        isLoadingFilters={filters.isLoadingFilters}
+        isLoadingMunicipalities={filters.isLoadingMunicipalities}
+        isYearRangeValid={filters.isYearRangeValid}
+        onRegionChange={filters.handleRegionChange}
+        onMoChange={filters.handleMoChange}
+        onStartYearChange={filters.setStartYear}
+        onEndYearChange={filters.setEndYear}
+        onShowClick={handleShowClick}
+        isLoadingData={isLoadingData}
+      />
+
       <main className="flex-1 overflow-auto p-6 md:p-8 custom-scrollbar">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-6 h-full min-h-[900px]">
-          
-          {/* Top Row: KPIs */}
+
+          {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 shrink-0">
-            <KPICard 
-              title="Численность населения" 
-              value="146.4M" 
-              change={0.15} 
-              data={sparklineDataBlue} 
-              color="neon-blue" 
+            <KPICard
+              title="Численность населения"
+              value={summary ? formatValue(summary.population) : null}
+              change={summary?.populationChangePercent ?? null}
+              data={sparklineBlue}
+              color="neon-blue"
+              isLoading={isLoadingData && !summary}
             />
-            <KPICard 
-              title="% изменение (г/г)" 
-              value="-0.02%" 
-              change={-0.02} 
-              data={sparklineDataNeutral} 
-              color="neutral" 
+            <KPICard
+              title="% изменение (г/г)"
+              value={summary ? `${summary.populationChangePercent > 0 ? "+" : ""}${summary.populationChangePercent.toFixed(2)}%` : null}
+              change={summary?.populationChangePercent ?? null}
+              data={sparklineNeutral}
+              color="neutral"
+              isLoading={isLoadingData && !summary}
             />
-            <KPICard 
-              title="Рождаемость (на 1000)" 
-              value="9.8" 
-              change={-1.2} 
-              data={sparklineDataRed} 
-              color="neon-coral" 
+            <KPICard
+              title="Рождаемость (на 1000)"
+              value={summary?.birthRate ?? null}
+              change={-1.2}
+              data={sparklineRed}
+              color="neon-coral"
+              isLoading={isLoadingData && !summary}
             />
-            <KPICard 
-              title="Смертность (на 1000)" 
-              value="13.1" 
-              change={-5.4} 
-              data={sparklineDataGreen} 
-              color="neon-mint" 
+            <KPICard
+              title="Смертность (на 1000)"
+              value={summary?.deathRate ?? null}
+              change={-5.4}
+              data={sparklineGreen}
+              color="neon-mint"
+              isLoading={isLoadingData && !summary}
             />
-            <KPICard 
-              title="Естественный прирост" 
-              value="-3.3" 
-              change={4.2} 
-              data={sparklineDataBlue} 
-              color="neon-blue" 
+            <KPICard
+              title="Естественный прирост"
+              value={summary?.naturalGrowth ?? null}
+              change={summary?.naturalGrowth ?? null}
+              data={sparklineBlue}
+              color="neon-blue"
+              isLoading={isLoadingData && !summary}
             />
           </div>
 
-          {/* Bottom Area: Map & Lists */}
+          {/* Map + Leader List */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-            
-            {/* Map block spans 8 columns */}
             <div className="lg:col-span-8 flex">
-              <Heatmap />
+              <Heatmap geoData={geoData} isLoading={isLoadingData && !geoData} />
             </div>
-
-            {/* Lists block spans 4 columns */}
             <div className="lg:col-span-4 flex flex-col gap-6">
               <LeaderList
-                growthData={growthLeaders}
-                declineData={declineLeaders}
+                growthData={topDynamics.growth}
+                declineData={topDynamics.decline}
+                isLoading={isLoadingData && topDynamics.growth.length === 0}
               />
             </div>
-
           </div>
         </div>
       </main>
+
+      {toast && <Toast message={toast.message} type={toast.type} />}
     </>
   );
 }
