@@ -4,15 +4,26 @@ import { generateReport, pollReportStatus, fetchReportContent, downloadReport } 
 const MAX_POLL_ATTEMPTS = 30;
 const POLL_INTERVAL_MS = 2000;
 
+/**
+ * Manages AI report generation lifecycle: submission → polling → completion.
+ *
+ * Status transitions:
+ *   idle → pending (generateReport called) → processing (task queued)
+ *       → completed | error
+ *
+ * @returns {object} Status, progress, HTML content, and action callbacks.
+ */
 export function useReport() {
   const [taskId, setTaskId] = useState(null);
-  const [reportStatus, setReportStatus] = useState("idle"); // idle | pending | processing | completed | error
+  /** @type {["idle"|"pending"|"processing"|"completed"|"error", Function]} */
+  const [reportStatus, setReportStatus] = useState("idle");
   const [progress, setProgress] = useState(0);
   const [reportHtml, setReportHtml] = useState(null);
   const [reportError, setReportError] = useState(null);
   const pollRef = useRef(null);
   const attemptsRef = useRef(0);
 
+  /** Cancels the polling interval and resets the attempt counter. */
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -21,6 +32,13 @@ export function useReport() {
     attemptsRef.current = 0;
   }, []);
 
+  /**
+   * Starts polling the report status endpoint every POLL_INTERVAL_MS ms.
+   * Stops automatically on completion, error, or MAX_POLL_ATTEMPTS exceeded.
+   *
+   * @param {string} id - Task ID returned by generateReport.
+   * @param {{ regionName?: string; moName?: string; horizon: number }} context
+   */
   const startPolling = useCallback(
     (id, context) => {
       attemptsRef.current = 0;
@@ -54,6 +72,11 @@ export function useReport() {
     [stopPolling]
   );
 
+  /**
+   * Submits a new report generation request and starts polling.
+   *
+   * @param {{ moId: number|null; horizon: number; regionName?: string; moName?: string }} params
+   */
   const generate = useCallback(
     async ({ moId, horizon, regionName, moName }) => {
       stopPolling();
@@ -74,12 +97,18 @@ export function useReport() {
     [startPolling, stopPolling]
   );
 
+  /**
+   * Initiates a file download for the completed report.
+   * Stub: alerts until the backend returns a real blob.
+   *
+   * @param {"pdf"|"docx"} format
+   */
   const handleDownload = useCallback(
     async (format = "pdf") => {
       if (!taskId) return;
       try {
         await downloadReport(taskId, format);
-        // TODO: Когда downloadReport вернёт blob — создать object URL и скачать файл:
+        // TODO: when downloadReport returns a blob, create an object URL and trigger download:
         // const url = URL.createObjectURL(blob);
         // const a = document.createElement("a"); a.href = url; a.download = `report.${format}`; a.click();
         alert(`Скачивание ${format.toUpperCase()} будет доступно после подключения бэкенда.`);

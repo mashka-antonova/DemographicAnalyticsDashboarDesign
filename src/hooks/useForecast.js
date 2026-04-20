@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchForecast, fetchForecastConfig } from "../api/forecast";
 
+/**
+ * Manages forecast configuration and computed chart state.
+ *
+ * - Loads available models and horizon limits once on mount.
+ * - `loadForecast` triggers a new calculation and stores chart data + metrics.
+ *
+ * @returns {object} Config, chart data, metrics, loading flags, and callbacks.
+ */
 export function useForecast() {
   const [config, setConfig] = useState({ models: [], horizon_limits: { min: 5, max: 15 } });
   const [selectedModel, setSelectedModel] = useState("prophet");
@@ -11,6 +19,7 @@ export function useForecast() {
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [forecastError, setForecastError] = useState(null);
 
+  // Load model config on mount; auto-select first model
   useEffect(() => {
     fetchForecastConfig()
       .then((cfg) => {
@@ -21,6 +30,12 @@ export function useForecast() {
       .finally(() => setIsLoadingConfig(false));
   }, []);
 
+  /**
+   * Fetches forecast data for the given municipality.
+   * Uses currently selected model and horizon from hook state.
+   *
+   * @param {{ moId: number | null }} params
+   */
   const loadForecast = useCallback(
     async ({ moId } = {}) => {
       setIsLoadingForecast(true);

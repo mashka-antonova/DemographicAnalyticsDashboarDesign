@@ -1,15 +1,6 @@
-import { ChevronDown, FileDown, FileText, Sparkles, Loader2 } from "lucide-react";
-
-interface Region {
-  id: number;
-  name: string;
-}
-
-interface Municipality {
-  id: number;
-  region_id: number;
-  name: string;
-}
+import { FileDown, FileText, Sparkles, Loader2 } from "lucide-react";
+import { FilterSelect } from "./ui/FilterSelect";
+import type { Region, Municipality } from "../../types";
 
 const HORIZONS = Array.from({ length: 6 }, (_, i) => i + 5); // 5..10
 
@@ -32,9 +23,6 @@ interface AIReportHeaderProps {
   isReportReady: boolean;
 }
 
-const selectClass =
-  "appearance-none pl-4 pr-9 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium text-slate-300 focus:outline-none focus:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed";
-
 export function AIReportHeader({
   regions,
   municipalities,
@@ -53,6 +41,13 @@ export function AIReportHeader({
   canGenerate,
   isReportReady,
 }: AIReportHeaderProps) {
+  const regionOptions = regions.map((r) => ({ value: r.id, label: r.name }));
+  const moOptions = municipalities.map((m) => ({ value: m.id, label: m.name }));
+  const horizonOptions = HORIZONS.map((y) => ({
+    value: y,
+    label: `Горизонт: ${y} лет`,
+  }));
+
   return (
     <header className="border-b border-white/10 shrink-0 backdrop-blur-md bg-white/5 relative z-10">
       {/* Row 1: Title + Export + Generate */}
@@ -105,67 +100,35 @@ export function AIReportHeader({
       <div className="flex items-center gap-3 px-8 py-3 flex-wrap">
         <span className="text-xs text-slate-500 uppercase tracking-wider shrink-0">Параметры:</span>
 
-        {/* Region */}
-        <div className="relative">
-          <select
-            value={selectedRegionId ?? ""}
-            onChange={(e) => { onRegionChange(e.target.value); onMoChange(""); }}
-            disabled={isLoadingFilters}
-            className={selectClass}
-            style={{ background: "rgba(255,255,255,0.05)", minWidth: 200 }}
-            aria-label="Субъект РФ"
-          >
-            <option value="" className="bg-[#0F172A]">Субъект РФ</option>
-            {regions.map((r) => (
-              <option key={r.id} value={r.id} className="bg-[#0F172A]">{r.name}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-        </div>
+        <FilterSelect
+          value={selectedRegionId ?? ""}
+          onChange={(v) => { onRegionChange(v); onMoChange(""); }}
+          options={regionOptions}
+          placeholder="Субъект РФ"
+          disabled={isLoadingFilters}
+          ariaLabel="Субъект РФ"
+          minWidth={200}
+        />
 
-        {/* Municipality */}
-        <div className="relative">
-          <select
-            value={selectedMoId ?? ""}
-            onChange={(e) => onMoChange(e.target.value)}
-            disabled={!selectedRegionId || isLoadingMunicipalities}
-            className={selectClass}
-            style={{ background: "rgba(255,255,255,0.05)", minWidth: 180 }}
-            aria-label="Муниципалитет"
-          >
-            <option value="" className="bg-[#0F172A]">
-              {isLoadingMunicipalities ? "Загрузка..." : "Муниципалитет"}
-            </option>
-            {municipalities.map((m) => (
-              <option key={m.id} value={m.id} className="bg-[#0F172A]">{m.name}</option>
-            ))}
-          </select>
-          {isLoadingMunicipalities ? (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
-          ) : (
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          )}
-        </div>
+        <FilterSelect
+          value={selectedMoId ?? ""}
+          onChange={onMoChange}
+          options={moOptions}
+          placeholder="Муниципалитет"
+          disabled={!selectedRegionId}
+          isLoading={isLoadingMunicipalities}
+          ariaLabel="Муниципалитет"
+          minWidth={180}
+        />
 
         <div className="w-px h-5 bg-white/10" />
 
-        {/* Horizon */}
-        <div className="relative">
-          <select
-            value={horizon}
-            onChange={(e) => onHorizonChange(e.target.value)}
-            className={selectClass}
-            style={{ background: "rgba(255,255,255,0.05)" }}
-            aria-label="Горизонт прогноза"
-          >
-            {HORIZONS.map((y) => (
-              <option key={y} value={String(y)} className="bg-[#0F172A]">
-                Горизонт: {y} лет
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-        </div>
+        <FilterSelect
+          value={horizon}
+          onChange={onHorizonChange}
+          options={horizonOptions}
+          ariaLabel="Горизонт прогноза"
+        />
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `@keyframes shimmer { 100% { transform: translateX(200%); } }`}} />

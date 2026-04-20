@@ -147,11 +147,11 @@ export async function fetchMonitoringSummary({ startYear, endYear, regionId, moI
   const base = regionId ? 1500000 + regionId * 1000 : 146400000;
   return {
     population: base,
-    populationChange: Math.round(base * 0.0033),
-    populationChangePercent: 0.33,
-    birthRate: 9.8,
-    deathRate: 13.1,
-    naturalGrowth: -3.3,
+    population_change: Math.round(base * 0.0033),
+    population_change_percent: 0.33,
+    birth_rate: 9.8,
+    death_rate: 13.1,
+    natural_growth: -3.3,
     migration: 2.1,
   };
 }

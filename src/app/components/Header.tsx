@@ -1,15 +1,6 @@
-import { ChevronDown, Loader2 } from "lucide-react";
-
-interface Region {
-  id: number;
-  name: string;
-}
-
-interface Municipality {
-  id: number;
-  region_id: number;
-  name: string;
-}
+import { Loader2 } from "lucide-react";
+import { FilterSelect } from "./ui/FilterSelect";
+import type { Region, Municipality } from "../../types";
 
 interface HeaderProps {
   regions: Region[];
@@ -30,9 +21,6 @@ interface HeaderProps {
   isLoadingData?: boolean;
 }
 
-const selectClass =
-  "appearance-none pl-3 pr-8 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium text-slate-300 focus:outline-none focus:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed";
-
 export function Header({
   regions,
   municipalities,
@@ -51,6 +39,15 @@ export function Header({
   onShowClick,
   isLoadingData,
 }: HeaderProps) {
+  const regionOptions = regions.map((r) => ({ value: r.id, label: r.name }));
+  const moOptions = municipalities.map((m) => ({ value: m.id, label: m.name }));
+  const startYearOptions = availableYears
+    .filter((y) => y <= endYear)
+    .map((y) => ({ value: y, label: String(y) }));
+  const endYearOptions = availableYears
+    .filter((y) => y >= startYear)
+    .map((y) => ({ value: y, label: String(y) }));
+
   return (
     <header className="h-20 border-b border-white/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-md bg-white/5 relative z-10 gap-4 flex-wrap">
       <div className="flex items-center gap-4 flex-wrap">
@@ -59,95 +56,42 @@ export function Header({
         </h1>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Region select */}
-          <div className="relative">
-            <select
-              value={selectedRegionId ?? ""}
-              onChange={(e) => onRegionChange(e.target.value)}
-              disabled={isLoadingFilters}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Субъект РФ"
-            >
-              <option value="" className="bg-[#0F172A]">Субъект РФ</option>
-              {regions.map((r) => (
-                <option key={r.id} value={r.id} className="bg-[#0F172A]">
-                  {r.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+          <FilterSelect
+            value={selectedRegionId ?? ""}
+            onChange={onRegionChange}
+            options={regionOptions}
+            placeholder="Субъект РФ"
+            disabled={isLoadingFilters}
+            ariaLabel="Субъект РФ"
+          />
 
-          {/* Municipality select */}
-          <div className="relative">
-            <select
-              value={selectedMoId ?? ""}
-              onChange={(e) => onMoChange(e.target.value)}
-              disabled={!selectedRegionId || isLoadingMunicipalities}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Муниципалитет"
-            >
-              <option value="" className="bg-[#0F172A]">
-                {isLoadingMunicipalities ? "Загрузка..." : "Муниципалитет"}
-              </option>
-              {municipalities.map((m) => (
-                <option key={m.id} value={m.id} className="bg-[#0F172A]">
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            {isLoadingMunicipalities ? (
-              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
-            ) : (
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            )}
-          </div>
+          <FilterSelect
+            value={selectedMoId ?? ""}
+            onChange={onMoChange}
+            options={moOptions}
+            placeholder="Муниципалитет"
+            disabled={!selectedRegionId}
+            isLoading={isLoadingMunicipalities}
+            ariaLabel="Муниципалитет"
+          />
 
           <div className="w-px h-5 bg-white/10" />
 
-          {/* Start year */}
-          <div className="relative">
-            <select
-              value={startYear}
-              onChange={(e) => onStartYearChange(Number(e.target.value))}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Год начала"
-            >
-              {availableYears
-                .filter((y) => y <= endYear)
-                .map((y) => (
-                  <option key={y} value={y} className="bg-[#0F172A]">
-                    {y}
-                  </option>
-                ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+          <FilterSelect
+            value={startYear}
+            onChange={(v) => onStartYearChange(Number(v))}
+            options={startYearOptions}
+            ariaLabel="Год начала"
+          />
 
           <span className="text-slate-500 text-sm">—</span>
 
-          {/* End year */}
-          <div className="relative">
-            <select
-              value={endYear}
-              onChange={(e) => onEndYearChange(Number(e.target.value))}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Год конца"
-            >
-              {availableYears
-                .filter((y) => y >= startYear)
-                .map((y) => (
-                  <option key={y} value={y} className="bg-[#0F172A]">
-                    {y}
-                  </option>
-                ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+          <FilterSelect
+            value={endYear}
+            onChange={(v) => onEndYearChange(Number(v))}
+            options={endYearOptions}
+            ariaLabel="Год конца"
+          />
 
           {!isYearRangeValid && (
             <span className="text-xs text-rose-400">{"Год начала > года конца"}</span>

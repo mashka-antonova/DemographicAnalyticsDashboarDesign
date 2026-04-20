@@ -1,71 +1,44 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { BentoCard } from "./ui/bento-card";
 import { Maximize2, Layers, Loader2 } from "lucide-react";
-
-interface HeatmapFeatureProperties {
-  name: string;
-  density: number;
-  population: number;
-  region_id?: number;
-  mo_id?: number;
-}
-
-interface HeatmapFeature {
-  type: "Feature";
-  properties: HeatmapFeatureProperties;
-  geometry: {
-    type: string;
-    coordinates: number[][][];
-  };
-}
-
-interface GeoData {
-  type: "FeatureCollection";
-  features: HeatmapFeature[];
-}
+import {
+  getDensityColor,
+  formatPopulation,
+} from "../../utils/dataHelpers";
+import type { GeoData, HeatmapFeatureProperties } from "../../types";
 
 interface HeatmapProps {
   geoData?: GeoData | null;
   isLoading?: boolean;
 }
 
-function getDensityColor(density: number): string {
-  if (density >= 2000) return "#22D3EE";
-  if (density >= 500) return "#8B5CF6";
-  if (density >= 100) return "#3B82F6";
-  if (density >= 20) return "#10B981";
-  return "#F59E0B";
-}
+const DENSITY_LEGEND = [
+  { color: "#22D3EE", label: "Очень высокая" },
+  { color: "#8B5CF6", label: "Высокая" },
+  { color: "#3B82F6", label: "Средняя" },
+  { color: "#10B981", label: "Низкая" },
+  { color: "#F59E0B", label: "Очень низкая" },
+];
 
-function getDensityLabel(density: number): string {
-  if (density >= 2000) return "Очень высокая";
-  if (density >= 500) return "Высокая";
-  if (density >= 100) return "Средняя";
-  if (density >= 20) return "Низкая";
-  return "Очень низкая";
-}
-
-function formatPopulation(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}М`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}К`;
-  return String(n);
-}
-
-export function Heatmap({ geoData, isLoading }: HeatmapProps) {
+/**
+ * Interactive Leaflet choropleth map showing population density
+ * by federal district. Wrapped in React.memo to prevent re-initialization
+ * when parent state changes unrelated to geoData.
+ */
+export const Heatmap = memo(function Heatmap({ geoData, isLoading }: HeatmapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const geoLayerRef = useRef<any>(null);
 
+  // Initialize Leaflet map once
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    if (typeof window === "undefined") return;
+    if (!mapContainerRef.current || typeof window === "undefined") return;
 
-    // Dynamically import leaflet to avoid SSR issues
     let cancelled = false;
     import("leaflet").then((L) => {
-      if (cancelled || !mapContainerRef.current) return;
+      if (cancelled || !mapContainerRef.current || mapInstanceRef.current) return;
 
-      // Fix leaflet default icon paths
+      // Fix default icon paths (broken with bundlers)
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -73,52 +46,46 @@ export function Heatmap({ geoData, isLoading }: HeatmapProps) {
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current!, {
-          center: [61.0, 60.0],
-          zoom: 3,
-          zoomControl: true,
-          attributionControl: false,
-        });
+      const map = L.map(mapContainerRef.current!, {
+        center: [61.0, 60.0],
+        zoom: 3,
+        zoomControl: true,
+        attributionControl: false,
+      });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap",
-          opacity: 0.15,
-        }).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+        opacity: 0.15,
+      }).addTo(map);
 
-        mapInstanceRef.current = map;
-      }
+      mapInstanceRef.current = map;
     });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Update GeoJSON layer when data changes
+  // Re-render GeoJSON layer whenever data changes
   useEffect(() => {
     if (!mapInstanceRef.current || !geoData) return;
 
     import("leaflet").then((L) => {
-      if (geoLayerRef.current) {
-        geoLayerRef.current.remove();
-      }
+      if (geoLayerRef.current) geoLayerRef.current.remove();
 
       const layer = L.geoJSON(geoData as any, {
-        style: (feature) => {
-          const density = feature?.properties?.density ?? 0;
-          return {
-            fillColor: getDensityColor(density),
-            fillOpacity: 0.45,
-            color: "rgba(255,255,255,0.3)",
-            weight: 1,
-          };
-        },
+        style: (feature) => ({
+          fillColor: getDensityColor(feature?.properties?.density ?? 0),
+          fillOpacity: 0.45,
+          color: "rgba(255,255,255,0.3)",
+          weight: 1,
+        }),
         onEachFeature: (feature, leafletLayer) => {
-          const { name, density, population } = feature.properties as HeatmapFeatureProperties;
+          const { name, density, population } =
+            feature.properties as HeatmapFeatureProperties;
+          const color = getDensityColor(density);
+
           leafletLayer.bindTooltip(
             `<div style="background:#0F172A;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;color:#e2e8f0;font-family:Inter,sans-serif;min-width:160px">
-              <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${getDensityColor(density)}">${name}</div>
+              <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${color}">${name}</div>
               <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
                 <span style="color:#94a3b8">Численность</span>
                 <span style="font-weight:600">${formatPopulation(population)}</span>
@@ -173,10 +140,16 @@ export function Heatmap({ geoData, isLoading }: HeatmapProps) {
       </div>
 
       <div className="absolute top-6 right-6 z-[1000] flex gap-2">
-        <button className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-300" aria-label="Слои">
+        <button
+          className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-300"
+          aria-label="Слои"
+        >
           <Layers className="w-4 h-4" />
         </button>
-        <button className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-300" aria-label="На весь экран">
+        <button
+          className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-300"
+          aria-label="На весь экран"
+        >
           <Maximize2 className="w-4 h-4" />
         </button>
       </div>
@@ -192,15 +165,8 @@ export function Heatmap({ geoData, isLoading }: HeatmapProps) {
 
       <div ref={mapContainerRef} className="absolute inset-0 z-0" style={{ width: "100%", height: "100%" }} />
 
-      {/* Legend */}
       <div className="absolute bottom-6 left-6 z-[1000] flex gap-4 pointer-events-none">
-        {[
-          { color: "#22D3EE", label: "Очень высокая" },
-          { color: "#8B5CF6", label: "Высокая" },
-          { color: "#3B82F6", label: "Средняя" },
-          { color: "#10B981", label: "Низкая" },
-          { color: "#F59E0B", label: "Очень низкая" },
-        ].map(({ color, label }) => (
+        {DENSITY_LEGEND.map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full" style={{ background: color }} />
             <span className="text-xs text-slate-400">{label}</span>
@@ -209,4 +175,4 @@ export function Heatmap({ geoData, isLoading }: HeatmapProps) {
       </div>
     </BentoCard>
   );
-}
+});
