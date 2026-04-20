@@ -1,20 +1,6 @@
-import { ChevronDown, Play, Loader2 } from "lucide-react";
-
-interface Region {
-  id: number;
-  name: string;
-}
-
-interface Municipality {
-  id: number;
-  region_id: number;
-  name: string;
-}
-
-interface ModelOption {
-  id: string;
-  name: string;
-}
+import { Play, Loader2 } from "lucide-react";
+import { FilterSelect } from "./ui/FilterSelect";
+import type { Region, Municipality, ModelOption } from "../../types";
 
 interface ForecastingHeaderProps {
   regions: Region[];
@@ -36,9 +22,6 @@ interface ForecastingHeaderProps {
 
 const HORIZONS = Array.from({ length: 11 }, (_, i) => i + 5);
 
-const selectClass =
-  "appearance-none pl-4 pr-9 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer text-sm font-medium text-slate-300 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed";
-
 export function ForecastingHeader({
   regions,
   municipalities,
@@ -56,6 +39,11 @@ export function ForecastingHeader({
   onHorizonChange,
   onCalculate,
 }: ForecastingHeaderProps) {
+  const regionOptions = regions.map((r) => ({ value: r.id, label: r.name }));
+  const moOptions = municipalities.map((m) => ({ value: m.id, label: m.name }));
+  const modelOptions = availableModels.map((m) => ({ value: m.id, label: m.name }));
+  const horizonOptions = HORIZONS.map((y) => ({ value: y, label: `Горизонт: ${y} лет` }));
+
   return (
     <header className="h-20 border-b border-white/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-md bg-white/5 relative z-10 gap-4">
       <div className="flex items-center gap-4 flex-wrap">
@@ -64,85 +52,42 @@ export function ForecastingHeader({
         </h1>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Region */}
-          <div className="relative">
-            <select
-              value={selectedRegionId ?? ""}
-              onChange={(e) => onRegionChange(e.target.value)}
-              disabled={isLoadingFilters}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Субъект РФ"
-            >
-              <option value="" className="bg-[#0F172A]">Субъект РФ</option>
-              {regions.map((r) => (
-                <option key={r.id} value={r.id} className="bg-[#0F172A]">{r.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+          <FilterSelect
+            value={selectedRegionId ?? ""}
+            onChange={onRegionChange}
+            options={regionOptions}
+            placeholder="Субъект РФ"
+            disabled={isLoadingFilters}
+            ariaLabel="Субъект РФ"
+          />
 
-          {/* Municipality */}
-          <div className="relative">
-            <select
-              value={selectedMoId ?? ""}
-              onChange={(e) => onMoChange(e.target.value)}
-              disabled={!selectedRegionId || isLoadingMunicipalities}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Муниципалитет"
-            >
-              <option value="" className="bg-[#0F172A]">
-                {isLoadingMunicipalities ? "Загрузка..." : "Муниципалитет"}
-              </option>
-              {municipalities.map((m) => (
-                <option key={m.id} value={m.id} className="bg-[#0F172A]">{m.name}</option>
-              ))}
-            </select>
-            {isLoadingMunicipalities ? (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
-            ) : (
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            )}
-          </div>
+          <FilterSelect
+            value={selectedMoId ?? ""}
+            onChange={onMoChange}
+            options={moOptions}
+            placeholder="Муниципалитет"
+            disabled={!selectedRegionId}
+            isLoading={isLoadingMunicipalities}
+            ariaLabel="Муниципалитет"
+          />
 
           <div className="w-px h-5 bg-white/10" />
 
-          {/* Model */}
           {availableModels.length > 0 && (
-            <div className="relative">
-              <select
-                value={selectedModel}
-                onChange={(e) => onModelChange(e.target.value)}
-                className={selectClass}
-                style={{ background: "rgba(255,255,255,0.05)" }}
-                aria-label="Модель прогноза"
-              >
-                {availableModels.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0F172A]">{m.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
+            <FilterSelect
+              value={selectedModel}
+              onChange={onModelChange}
+              options={modelOptions}
+              ariaLabel="Модель прогноза"
+            />
           )}
 
-          {/* Horizon */}
-          <div className="relative">
-            <select
-              value={horizon}
-              onChange={(e) => onHorizonChange(Number(e.target.value))}
-              className={selectClass}
-              style={{ background: "rgba(255,255,255,0.05)" }}
-              aria-label="Горизонт прогноза"
-            >
-              {HORIZONS.map((y) => (
-                <option key={y} value={y} className="bg-[#0F172A]">
-                  Горизонт: {y} лет
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+          <FilterSelect
+            value={horizon}
+            onChange={(v) => onHorizonChange(Number(v))}
+            options={horizonOptions}
+            ariaLabel="Горизонт прогноза"
+          />
         </div>
       </div>
 

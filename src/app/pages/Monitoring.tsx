@@ -10,21 +10,19 @@ import {
   fetchTopDynamics,
 } from "../../api/monitoring";
 import { getErrorMessage } from "../../utils/errorHandler";
+import {
+  buildRisingSparkline,
+  buildDecliningSparkline,
+  buildFlatSparkline,
+  buildGentleRisingSparkline,
+} from "../../utils/dataHelpers";
+import type { MonitoringSummary, TopDynamics, GeoData } from "../../types";
 
-interface Summary {
-  population: number;
-  populationChange: number;
-  populationChangePercent: number;
-  birthRate: number;
-  deathRate: number;
-  naturalGrowth: number;
-  migration: number;
-}
-
-interface TopDynamics {
-  growth: { mo_id: number; name: string; population: number; changePercent: number }[];
-  decline: { mo_id: number; name: string; population: number; changePercent: number }[];
-}
+// Sparklines are static – generated once per mount, not tied to API data
+const sparklineBlue = buildRisingSparkline();
+const sparklineGreen = buildGentleRisingSparkline();
+const sparklineRed = buildDecliningSparkline();
+const sparklineNeutral = buildFlatSparkline();
 
 function Toast({ message, type }: { message: string; type: "error" | "info" }) {
   return (
@@ -40,17 +38,103 @@ function Toast({ message, type }: { message: string; type: "error" | "info" }) {
   );
 }
 
+/** Formats a raw population number into a compact Russian-locale string. */
 function formatValue(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}М`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}К`;
   return String(n);
 }
 
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+interface KPISectionProps {
+  summary: MonitoringSummary | null;
+  isLoading: boolean;
+}
+
+/** Renders the row of 5 KPI metric cards. */
+function KPISection({ summary, isLoading }: KPISectionProps) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 shrink-0">
+      <KPICard
+        title="Численность населения"
+        value={summary ? formatValue(summary.population) : null}
+        change={summary?.population_change_percent ?? null}
+        data={sparklineBlue}
+        color="neon-blue"
+        isLoading={isLoading && !summary}
+      />
+      <KPICard
+        title="% изменение (г/г)"
+        value={
+          summary
+            ? `${summary.population_change_percent > 0 ? "+" : ""}${summary.population_change_percent.toFixed(2)}%`
+            : null
+        }
+        change={summary?.population_change_percent ?? null}
+        data={sparklineNeutral}
+        color="neutral"
+        isLoading={isLoading && !summary}
+      />
+      <KPICard
+        title="Рождаемость (на 1000)"
+        value={summary?.birth_rate ?? null}
+        change={-1.2}
+        data={sparklineRed}
+        color="neon-coral"
+        isLoading={isLoading && !summary}
+      />
+      <KPICard
+        title="Смертность (на 1000)"
+        value={summary?.death_rate ?? null}
+        change={-5.4}
+        data={sparklineGreen}
+        color="neon-mint"
+        isLoading={isLoading && !summary}
+      />
+      <KPICard
+        title="Естественный прирост"
+        value={summary?.natural_growth ?? null}
+        change={summary?.natural_growth ?? null}
+        data={sparklineBlue}
+        color="neon-blue"
+        isLoading={isLoading && !summary}
+      />
+    </div>
+  );
+}
+
+interface MapSectionProps {
+  geoData: GeoData | null;
+  topDynamics: TopDynamics;
+  isLoading: boolean;
+}
+
+/** Renders the Heatmap + LeaderList side-by-side layout. */
+function MapSection({ geoData, topDynamics, isLoading }: MapSectionProps) {
+  return (
+    <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
+      <div className="lg:col-span-8 flex">
+        <Heatmap geoData={geoData} isLoading={isLoading && !geoData} />
+      </div>
+      <div className="lg:col-span-4 flex flex-col gap-6">
+        <LeaderList
+          growthData={topDynamics.growth}
+          declineData={topDynamics.decline}
+          isLoading={isLoading && topDynamics.growth.length === 0}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
+
 export function Monitoring() {
   const filters = useFilters();
 
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [geoData, setGeoData] = useState<any>(null);
+  const [summary, setSummary] = useState<MonitoringSummary | null>(null);
+  const [geoData, setGeoData] = useState<GeoData | null>(null);
   const [topDynamics, setTopDynamics] = useState<TopDynamics>({ growth: [], decline: [] });
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "info" } | null>(null);
@@ -60,27 +144,23 @@ export function Monitoring() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  /**
+   * Fetches summary, heatmap, and top-dynamics in parallel.
+   * Called on initial load and whenever the user clicks "Показать".
+   */
   const loadData = useCallback(
-    async (params: { startYear: number; endYear: number; regionId: number | null; moId: number | null }) => {
+    async (params: {
+      startYear: number;
+      endYear: number;
+      regionId: number | null;
+      moId: number | null;
+    }) => {
       setIsLoadingData(true);
       try {
         const [summaryData, heatmap, dynamics] = await Promise.all([
-          fetchMonitoringSummary({
-            startYear: params.startYear,
-            endYear: params.endYear,
-            regionId: params.regionId,
-            moId: params.moId,
-          }),
-          fetchHeatmapData({
-            startYear: params.startYear,
-            endYear: params.endYear,
-            regionId: params.regionId,
-          }),
-          fetchTopDynamics({
-            startYear: params.startYear,
-            endYear: params.endYear,
-            regionId: params.regionId,
-          }),
+          fetchMonitoringSummary(params),
+          fetchHeatmapData({ startYear: params.startYear, endYear: params.endYear, regionId: params.regionId }),
+          fetchTopDynamics({ startYear: params.startYear, endYear: params.endYear, regionId: params.regionId }),
         ]);
         setSummary(summaryData);
         setGeoData(heatmap);
@@ -94,7 +174,7 @@ export function Monitoring() {
     [showToast]
   );
 
-  // Load default data after filters are ready
+  // Load default data once filters are ready
   useEffect(() => {
     if (!filters.isLoadingFilters && filters.availableYears.length > 0) {
       loadData({
@@ -107,6 +187,7 @@ export function Monitoring() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.isLoadingFilters]);
 
+  /** Called when user clicks the "Показать" button. */
   const handleShowClick = () => {
     if (!filters.isYearRangeValid) return;
     loadData({
@@ -116,11 +197,6 @@ export function Monitoring() {
       moId: filters.selectedMoId,
     });
   };
-
-  const sparklineBlue = Array.from({ length: 20 }, (_, i) => ({ value: 100 + i * 2 + Math.random() * 10 }));
-  const sparklineGreen = Array.from({ length: 20 }, (_, i) => ({ value: 50 + i + Math.random() * 8 }));
-  const sparklineRed = Array.from({ length: 20 }, (_, i) => ({ value: 80 - i * 0.5 - Math.random() * 5 }));
-  const sparklineNeutral = Array.from({ length: 20 }, () => ({ value: 60 + Math.random() * 5 }));
 
   return (
     <>
@@ -145,64 +221,8 @@ export function Monitoring() {
 
       <main className="flex-1 overflow-auto p-6 md:p-8 custom-scrollbar">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-6 h-full min-h-[900px]">
-
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 shrink-0">
-            <KPICard
-              title="Численность населения"
-              value={summary ? formatValue(summary.population) : null}
-              change={summary?.populationChangePercent ?? null}
-              data={sparklineBlue}
-              color="neon-blue"
-              isLoading={isLoadingData && !summary}
-            />
-            <KPICard
-              title="% изменение (г/г)"
-              value={summary ? `${summary.populationChangePercent > 0 ? "+" : ""}${summary.populationChangePercent.toFixed(2)}%` : null}
-              change={summary?.populationChangePercent ?? null}
-              data={sparklineNeutral}
-              color="neutral"
-              isLoading={isLoadingData && !summary}
-            />
-            <KPICard
-              title="Рождаемость (на 1000)"
-              value={summary?.birthRate ?? null}
-              change={-1.2}
-              data={sparklineRed}
-              color="neon-coral"
-              isLoading={isLoadingData && !summary}
-            />
-            <KPICard
-              title="Смертность (на 1000)"
-              value={summary?.deathRate ?? null}
-              change={-5.4}
-              data={sparklineGreen}
-              color="neon-mint"
-              isLoading={isLoadingData && !summary}
-            />
-            <KPICard
-              title="Естественный прирост"
-              value={summary?.naturalGrowth ?? null}
-              change={summary?.naturalGrowth ?? null}
-              data={sparklineBlue}
-              color="neon-blue"
-              isLoading={isLoadingData && !summary}
-            />
-          </div>
-
-          {/* Map + Leader List */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-            <div className="lg:col-span-8 flex">
-              <Heatmap geoData={geoData} isLoading={isLoadingData && !geoData} />
-            </div>
-            <div className="lg:col-span-4 flex flex-col gap-6">
-              <LeaderList
-                growthData={topDynamics.growth}
-                declineData={topDynamics.decline}
-                isLoading={isLoadingData && topDynamics.growth.length === 0}
-              />
-            </div>
-          </div>
+          <KPISection summary={summary} isLoading={isLoadingData} />
+          <MapSection geoData={geoData} topDynamics={topDynamics} isLoading={isLoadingData} />
         </div>
       </main>
 

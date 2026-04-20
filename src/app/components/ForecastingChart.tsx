@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { BentoCard } from "./ui/bento-card";
 import {
   Area,
@@ -13,23 +14,14 @@ import {
 } from "recharts";
 import { useId } from "react";
 import { Loader2 } from "lucide-react";
-
-interface ChartPoint {
-  year: number;
-  fact: number | null;
-  forecast: number | null;
-  low: number | null;
-  high: number | null;
-}
+import { getJunctionYear, formatRuNumber } from "../../utils/dataHelpers";
+import type { ForecastChartPoint } from "../../types";
 
 interface ForecastingChartProps {
-  data: ChartPoint[];
+  data: ForecastChartPoint[];
   isLoading?: boolean;
   error?: string | null;
 }
-
-const formatNumber = (num: number) =>
-  new Intl.NumberFormat("ru-RU").format(num);
 
 function SkeletonChart() {
   return (
@@ -42,13 +34,21 @@ function SkeletonChart() {
   );
 }
 
-export function ForecastingChart({ data, isLoading, error }: ForecastingChartProps) {
+/**
+ * Composed Recharts chart showing historical population data, a forecast line,
+ * and a 95% confidence interval band.
+ * Wrapped in React.memo — only re-renders when `data`, `isLoading`, or `error` change.
+ */
+export const ForecastingChart = memo(function ForecastingChart({
+  data,
+  isLoading,
+  error,
+}: ForecastingChartProps) {
   const uid = useId();
   const gradientId = `colorInterval-${uid.replace(/:/g, "")}`;
+  const junctionYear = getJunctionYear(data);
 
-  const junctionYear = data.find((d) => d.fact !== null && d.forecast !== null)?.year;
-
-  // Transform data: area chart needs [low, high] as array for Recharts Area stacking
+  // Recharts Area needs [low, high] as array for confidence band
   const chartData = data.map((d) => ({
     ...d,
     interval: d.low !== null && d.high !== null ? [d.low, d.high] : undefined,
@@ -119,7 +119,7 @@ export function ForecastingChart({ data, isLoading, error }: ForecastingChartPro
                           <div className="w-3 h-3 rounded-full bg-blue-600" />
                           <span className="text-slate-300 text-sm">Факт:</span>
                           <span className="text-white font-mono font-medium ml-auto">
-                            {formatNumber(hist.value as number)}
+                            {formatRuNumber(hist.value as number)}
                           </span>
                         </div>
                       )}
@@ -128,7 +128,7 @@ export function ForecastingChart({ data, isLoading, error }: ForecastingChartPro
                           <div className="w-3 h-3 rounded-full bg-cyan-400" />
                           <span className="text-slate-300 text-sm">Прогноз:</span>
                           <span className="text-cyan-400 font-mono font-bold ml-auto">
-                            {formatNumber(fore.value as number)}
+                            {formatRuNumber(fore.value as number)}
                           </span>
                         </div>
                       )}
@@ -137,13 +137,13 @@ export function ForecastingChart({ data, isLoading, error }: ForecastingChartPro
                           <div className="flex justify-between text-xs">
                             <span className="text-slate-400">Верхняя граница:</span>
                             <span className="text-emerald-400 font-mono">
-                              {formatNumber(interval.value[1])}
+                              {formatRuNumber(interval.value[1])}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-slate-400">Нижняя граница:</span>
                             <span className="text-rose-400 font-mono">
-                              {formatNumber(interval.value[0])}
+                              {formatRuNumber(interval.value[0])}
                             </span>
                           </div>
                         </div>
@@ -203,24 +203,18 @@ export function ForecastingChart({ data, isLoading, error }: ForecastingChartPro
         <div className="flex items-center justify-center gap-8 mt-6 pt-4 border-t border-white/5">
           <div className="flex items-center gap-2">
             <div className="w-4 h-1 bg-[#2563EB] rounded-full" />
-            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-              Исторические данные
-            </span>
+            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Исторические данные</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-1 border-b-2 border-dashed border-[#22D3EE]" />
-            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-              Линия прогноза
-            </span>
+            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Линия прогноза</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gradient-to-b from-[#06B6D4]/30 to-transparent border border-[#06B6D4]/20 rounded-sm" />
-            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-              95% Доверительный интервал
-            </span>
+            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">95% Доверительный интервал</span>
           </div>
         </div>
       )}
     </BentoCard>
   );
-}
+});
