@@ -58,12 +58,12 @@ export function Forecasting() {
         onCalculate={handleCalculate}
       />
 
-      <main className="flex-1 overflow-auto p-6 md:p-8 custom-scrollbar relative">
+      <main className="flex-1 overflow-hidden p-4 md:p-6 custom-scrollbar relative">
         <div className="absolute top-0 left-0 w-full h-[500px] bg-[#06B6D4]/5 blur-[120px] pointer-events-none rounded-full transform -translate-y-1/2" />
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-6 h-full min-h-[900px] relative z-10">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-3 h-full relative z-10">
 
           {/* Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+          <div className="grid grid-cols-3 gap-3 shrink-0">
             <ModelAccuracyCard
               title="MAPE"
               value={forecast.metrics ? `${forecast.metrics.mape}%` : "—"}
@@ -96,7 +96,7 @@ export function Forecasting() {
           </div>
 
           {/* Chart */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             <ForecastingChart
               data={forecast.chartData}
               isLoading={forecast.isLoadingForecast}

@@ -11,16 +11,16 @@ interface ModelAccuracyCardProps {
 
 export function ModelAccuracyCard({ title, value, subtitle, colorClass, icon }: ModelAccuracyCardProps) {
   return (
-    <BentoCard className="p-5 flex items-center justify-between group hover:border-white/20 transition-all">
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">{title}</span>
+    <BentoCard className="p-3 px-4 flex items-center justify-between group hover:border-white/20 transition-all">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{title}</span>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold font-mono tracking-tight text-white">{value}</span>
+          <span className="text-lg font-bold font-mono tracking-tight text-white">{value}</span>
         </div>
         <span className="text-xs text-slate-500">{subtitle}</span>
       </div>
-      
-      <div className={"w-12 h-12 rounded-full flex items-center justify-center bg-white/5 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)] " + colorClass}>
+
+      <div className={"w-9 h-9 rounded-full flex items-center justify-center bg-white/5 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)] " + colorClass}>
         {icon || <Activity className="w-6 h-6" />}
       </div>
     </BentoCard>
