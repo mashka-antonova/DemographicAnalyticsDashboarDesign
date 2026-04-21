@@ -49,9 +49,9 @@ export function Header({
     .map((y) => ({ value: y, label: String(y) }));
 
   return (
-    <header className="h-20 border-b border-white/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-md bg-white/5 relative z-10 gap-4 flex-wrap">
+    <header className="h-20 border-b border-slate-200 dark:border-white/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-md bg-white/80 dark:bg-white/5 relative z-10 gap-4 flex-wrap">
       <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-xl font-bold tracking-tight text-white mr-2 whitespace-nowrap">
+        <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white mr-2 whitespace-nowrap">
           Мониторинг населения
         </h1>
 

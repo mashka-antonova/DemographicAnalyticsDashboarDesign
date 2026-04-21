@@ -49,11 +49,11 @@ export function AIReportHeader({
   }));
 
   return (
-    <header className="border-b border-white/10 shrink-0 backdrop-blur-md bg-white/5 relative z-10">
+    <header className="border-b border-slate-200 dark:border-white/10 shrink-0 backdrop-blur-md bg-white/80 dark:bg-white/5 relative z-10">
       {/* Row 1: Title + Export + Generate */}
-      <div className="flex items-center justify-between px-8 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-8 py-3 border-b border-slate-100 dark:border-white/5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white">ИИ-аналитическая справка</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white">ИИ-аналитическая справка</h1>
           <p className="text-xs text-slate-500 mt-0.5">Автоматическая генерация демографических отчётов</p>
         </div>
 
