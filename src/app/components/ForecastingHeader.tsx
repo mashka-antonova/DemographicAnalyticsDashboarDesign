@@ -45,66 +45,70 @@ export function ForecastingHeader({
   const horizonOptions = HORIZONS.map((y) => ({ value: y, label: `Горизонт: ${y} лет` }));
 
   return (
-    <header className="h-20 border-b border-white/10 flex items-center justify-between px-8 shrink-0 backdrop-blur-md bg-white/5 relative z-10 gap-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-xl font-bold tracking-tight text-white whitespace-nowrap mr-2">
+    <header className="border-b border-slate-200 dark:border-white/10 shrink-0 backdrop-blur-md bg-white/80 dark:bg-white/5 relative z-10">
+      {/* Row 1: Title + Calculate button — always visible, no wrapping */}
+      <div className="flex items-center justify-between px-8 h-16 gap-4">
+        <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
           Демографическое прогнозирование
         </h1>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <FilterSelect
-            value={selectedRegionId ?? ""}
-            onChange={onRegionChange}
-            options={regionOptions}
-            placeholder="Субъект РФ"
-            disabled={isLoadingFilters}
-            ariaLabel="Субъект РФ"
-          />
-
-          <FilterSelect
-            value={selectedMoId ?? ""}
-            onChange={onMoChange}
-            options={moOptions}
-            placeholder="Муниципалитет"
-            disabled={!selectedRegionId}
-            isLoading={isLoadingMunicipalities}
-            ariaLabel="Муниципалитет"
-          />
-
-          <div className="w-px h-5 bg-white/10" />
-
-          {availableModels.length > 0 && (
-            <FilterSelect
-              value={selectedModel}
-              onChange={onModelChange}
-              options={modelOptions}
-              ariaLabel="Модель прогноза"
-            />
+        <button
+          onClick={onCalculate}
+          disabled={isLoadingForecast || isLoadingFilters}
+          className="relative group px-6 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] border border-white/10 flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+          aria-label="Рассчитать прогноз"
+        >
+          <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+          {isLoadingForecast ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Play className="w-4 h-4 fill-white" />
           )}
-
-          <FilterSelect
-            value={horizon}
-            onChange={(v) => onHorizonChange(Number(v))}
-            options={horizonOptions}
-            ariaLabel="Горизонт прогноза"
-          />
-        </div>
+          {isLoadingForecast ? "Расчёт..." : "Рассчитать прогноз"}
+        </button>
       </div>
 
-      <button
-        onClick={onCalculate}
-        disabled={isLoadingForecast || isLoadingFilters}
-        className="relative group px-6 py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] border border-white/10 flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
-        aria-label="Рассчитать прогноз"
-      >
-        <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-        {isLoadingForecast ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Play className="w-4 h-4 fill-white" />
+      {/* Row 2: Filters — separate row, no height conflict with title */}
+      <div className="flex items-center gap-3 px-8 py-2.5 border-t border-slate-100 dark:border-white/5 flex-wrap">
+        <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">Фильтры:</span>
+
+        <FilterSelect
+          value={selectedRegionId ?? ""}
+          onChange={onRegionChange}
+          options={regionOptions}
+          placeholder="Субъект РФ"
+          disabled={isLoadingFilters}
+          ariaLabel="Субъект РФ"
+        />
+
+        <FilterSelect
+          value={selectedMoId ?? ""}
+          onChange={onMoChange}
+          options={moOptions}
+          placeholder="Муниципалитет"
+          disabled={!selectedRegionId}
+          isLoading={isLoadingMunicipalities}
+          ariaLabel="Муниципалитет"
+        />
+
+        <div className="w-px h-5 bg-slate-200 dark:bg-white/10" />
+
+        {availableModels.length > 0 && (
+          <FilterSelect
+            value={selectedModel}
+            onChange={onModelChange}
+            options={modelOptions}
+            ariaLabel="Модель прогноза"
+          />
         )}
-        {isLoadingForecast ? "Расчёт..." : "Рассчитать прогноз"}
-      </button>
+
+        <FilterSelect
+          value={horizon}
+          onChange={(v) => onHorizonChange(Number(v))}
+          options={horizonOptions}
+          ariaLabel="Горизонт прогноза"
+        />
+      </div>
 
       <style dangerouslySetInnerHTML={{__html: `@keyframes shimmer { 100% { transform: translateX(100%); } }`}} />
     </header>
