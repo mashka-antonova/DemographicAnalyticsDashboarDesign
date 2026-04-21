@@ -55,8 +55,8 @@ export const ForecastingChart = memo(function ForecastingChart({
   }));
 
   return (
-    <BentoCard className="flex flex-col flex-1 min-h-[500px] p-6">
-      <div className="flex items-center gap-3 mb-8">
+    <BentoCard className="flex flex-col flex-1 min-h-0 p-5">
+      <div className="flex items-center gap-3 mb-4">
         <h2 className="text-xl font-bold text-white tracking-tight">
           Прогноз численности населения
         </h2>
